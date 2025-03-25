@@ -12,24 +12,33 @@ with st.form("file_upload_form"):
 if submit_button:
     if uploaded_file is not None:
         try:
-            # Read uploaded file
+            summary_data = []
+
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file)
+                num_rows, num_cols = df.shape
+                summary_data.append({
+                    "Sheet Name": "CSV File",
+                    "Number of Rows": num_rows,
+                    "Number of Columns": num_cols
+                })
+
             else:
-                df = pd.read_excel(uploaded_file)
+                # Read all sheets from Excel
+                xls = pd.read_excel(uploaded_file, sheet_name=None)  # returns a dict {sheet_name: df}
+                for sheet_name, sheet_df in xls.items():
+                    num_rows, num_cols = sheet_df.shape
+                    summary_data.append({
+                        "Sheet Name": sheet_name,
+                        "Number of Rows": num_rows,
+                        "Number of Columns": num_cols
+                    })
 
+            # Create summary DataFrame
+            output_df = pd.DataFrame(summary_data)
+
+            # Display summary on screen
             st.success("✅ File uploaded and read successfully!")
-            num_rows, num_cols = df.shape
-            st.write(f"**Number of rows:** {num_rows}")
-            st.write(f"**Number of columns:** {num_cols}")
-
-            # Prepare output data
-            output_df = pd.DataFrame({
-                "Metric": ["Number of Rows", "Number of Columns"],
-                "Value": [num_rows, num_cols]
-            })
-
-            # Display the output dataframe on screen
             st.subheader("📄 Output Summary")
             st.dataframe(output_df)
 
@@ -37,7 +46,7 @@ if submit_button:
             base_name = os.path.splitext(uploaded_file.name)[0]
             output_filename = f"{base_name}_output.xlsx"
 
-            # Write to in-memory Excel file
+            # Write summary to Excel file in memory
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 output_df.to_excel(writer, index=False, sheet_name='Summary')
@@ -56,4 +65,3 @@ if submit_button:
             st.error(f"❌ Error reading file: {e}")
     else:
         st.warning("⚠️ Please upload a file before submitting.")
-
